@@ -25,6 +25,7 @@ REGIONS = {
     "Italy": "Europe",
     "Switzerland": "Europe",
     "Spain": "Europe",
+    "Denmark": "Europe",
     "China": "East & Southeast Asia",
     "Japan": "East & Southeast Asia",
     "Malaysia": "East & Southeast Asia",
@@ -62,12 +63,20 @@ def validate(df: pd.DataFrame) -> None:
     missing = REQUIRED_COLUMNS - set(df.columns)
     if missing:
         raise ValueError(f"CSV is missing columns: {sorted(missing)}")
-    if df[list(REQUIRED_COLUMNS)].isna().any().any():
-        raise ValueError("CSV contains empty values")
+
+    # Line numbers match the numbers shown in VS Code (row 0 is file line 2)
+    bad_rows = df[df[list(REQUIRED_COLUMNS)].isna().any(axis=1)]
+    if not bad_rows.empty:
+        raise ValueError(
+            f"Empty or non-numeric values on file lines: {(bad_rows.index + 2).tolist()}"
+        )
+
     if (df["tourists_ytd"] < 0).any():
         raise ValueError("CSV contains negative tourist counts")
     if df.duplicated(["report_date", "country"]).any():
         raise ValueError("CSV contains a country twice for the same date")
+    if df.duplicated(["report_date", "rank"]).any():
+        raise ValueError("CSV uses the same rank twice for one date")
     unknown = set(df["country"]) - set(REGIONS)
     if unknown:
         raise ValueError(f"Add these countries to REGIONS: {sorted(unknown)}")
@@ -75,6 +84,10 @@ def validate(df: pd.DataFrame) -> None:
 
 def main() -> None:
     df = pd.read_csv(CSV_PATH, parse_dates=["report_date"])
+
+    for column in ("rank", "tourists_ytd"):
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+
     df["country"] = df["country"].str.strip()
     validate(df)
 
