@@ -71,6 +71,30 @@ Tourists by region (from `sql/queries.sql`):
 - The warehouse currently holds one snapshot, cumulative to 30 June 2026. Adding more monthly reports would allow monthly arrivals to be derived with SQL window functions.
 - The data is entered by hand, so each new report needs a careful check.
 
+## Monthly arrivals with `LAG`
+
+The SLTDA reports publish **cumulative year-to-date** figures, so monthly arrivals
+are not stored directly. They are derived in SQL with a window function:
+
+```sql
+tourists_ytd - LAG(tourists_ytd) OVER (PARTITION BY country_key ORDER BY full_date)
+```
+
+The query (Query 4 in `sql/queries.sql`) only subtracts when the previous row is
+from the immediately preceding month, so a country that drops out of the top 20
+for a month never produces a wrong figure.
+
+## Data notes and limitations
+
+- Only the top 20 source markets per report are loaded, so the totals are
+  not total national arrivals.
+- Countries can enter or leave the top 20 between months, so monthly figures
+  exist only for countries present in two consecutive reports.
+- Currently loaded: May and June 2026. More months can be added by appending rows to
+  `data/arrivals_ytd.csv` and re-running `python load_data.py`. The load is idempotent.
+- Report data is entered manually from the SLTDA PDFs. The loader validates
+  missing values, duplicates, negative counts and unknown countries.
+
 ## Author
 
 Dilki Ishara Nanayakkara, IT undergraduate at Institute of Technology University of Moratuwa
